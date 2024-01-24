@@ -27,7 +27,6 @@ class _OtpScreenState extends State<OtpScreen> {
     // Load data only once after screen load
     if (widget._isInit) {
       widget._contact = ModalRoute.of(context)?.settings.arguments as String;
-      generateOtp(widget._contact);
       widget._isInit = false;
     }
   }
@@ -57,11 +56,6 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
                 SizedBox(
                   height: screenHeight * 0.05,
-                ),
-                Image.asset(
-                  'assets/images/varification.png',
-                  height: screenHeight * 0.3,
-                  fit: BoxFit.contain,
                 ),
                 SizedBox(
                   height: screenHeight * 0.02,
@@ -146,7 +140,7 @@ class _OtpScreenState extends State<OtpScreen> {
                       ),
                       GestureDetector(
                         onTap: () {
-                          verifyOtp();
+                          generateOtp(widget._contact);
                         },
                         child: Container(
                           margin: const EdgeInsets.all(8),
@@ -184,45 +178,39 @@ class _OtpScreenState extends State<OtpScreen> {
         codeAutoRetrievalTimeout: (String verId) {
           verificationId = verId;
         },
-        codeSent: (verificationId, forceResendingToken) {
-          this.verificationId = verificationId;
-          setState(() {});
+        codeSent: (verificationId, forceResendingToken) async {
+          if (smsOTP == null || smsOTP == '') {
+            showAlertDialog(context, 'Please enter 6 digit otp');
+            return;
+          }
+
+          try {
+            final AuthCredential authCredential = PhoneAuthProvider.credential(
+              verificationId: verificationId,
+              smsCode: smsOTP ?? "",
+            );
+
+            var credential = await _auth.signInWithCredential(authCredential);
+
+            if (credential.user != null) {
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, '/homeScreen');
+              }
+            } else {
+              if (context.mounted) {
+                showAlertDialog(context, "Verity false");
+              }
+            }
+          } catch (e) {
+            if (context.mounted) {
+              showAlertDialog(context, "$e");
+            }
+          }
         },
         timeout: const Duration(seconds: 60),
         verificationFailed: (error) {
           showAlertDialog(context, error.message);
         });
-  }
-
-  //Method for verify otp entered by user
-  Future<void> verifyOtp() async {
-    if (smsOTP == null || smsOTP == '') {
-      showAlertDialog(context, 'Please enter 6 digit otp');
-      return;
-    }
-
-    try {
-      final AuthCredential authCredential = PhoneAuthProvider.credential(
-        verificationId: verificationId ?? "",
-        smsCode: smsOTP ?? "",
-      );
-
-      var credential = await _auth.signInWithCredential(authCredential);
-
-      if (credential.user != null) {
-        if (context.mounted) {
-          Navigator.pushReplacementNamed(context, '/homeScreen');
-        }
-      } else {
-        if (context.mounted) {
-          showAlertDialog(context, "Verity false");
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        showAlertDialog(context, "$e");
-      }
-    }
   }
 
   //Basic alert dialogue for alert errors and confirmations
